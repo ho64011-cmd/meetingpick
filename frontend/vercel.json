@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "buildCommand": "echo 'no-op'",
+  "installCommand": "echo 'no-op'",
+  "framework": "static"
+}
