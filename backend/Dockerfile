@@ -3,11 +3,11 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # 의존성 설치
-COPY backend/requirements.txt /app/requirements.txt
+COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 앱 코드 복사
-COPY backend/ /app/
+COPY . /app/
 
 EXPOSE 8000
 
