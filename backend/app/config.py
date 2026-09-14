@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 # 프로젝트 루트(backend/) 기준으로 .env 로드
 BackendRoot = Path(__file__).resolve().parent.parent
-load_dotenv(dotenv_path=BackendRoot / ".env", verbose=False)
+load_dotenv(dotenv_path=BackendRoot / ".env", verbose=False, override=False)
 
 
 import os
