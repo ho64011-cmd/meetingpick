@@ -13,6 +13,10 @@ load_dotenv(dotenv_path=BackendRoot / ".env", verbose=False)
 
 import os
 
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
