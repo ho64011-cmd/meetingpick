@@ -12,7 +12,7 @@ from app.schemas import (
     Highlight,
     TaskCandidate,
 )
-from app.solar import call_solar, parse_mock_response
+from app.solar import call_solar, parse_solar_response
 
 
 def extract_tasks(req: ExtractRequest) -> ExtractionResult:

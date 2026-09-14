@@ -37,3 +37,8 @@ GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "")
 
 # 회의 일시 (상대 날짜 변환 확인용)
 MEETING_DATE = os.getenv("MEETING_DATE", "2026-09-12")
+
+# --- Solar Pro 4 실호출 설정 ---
+SOLAR_PRO4_API_KEY = os.getenv("SOLAR_PRO4_API_KEY", "")
+SOLAR_PRO4_ENDPOINT = os.getenv("SOLAR_PRO4_ENDPOINT", "")
+SOLAR_PRO4_MODEL = os.getenv("SOLAR_PRO4_MODEL", "")
