@@ -58,9 +58,6 @@ def create_session() -> SessionCreateResponse:
 
 
 
-    return str(uuid.uuid4())
-
-
 # ---------- 추출 ----------
 @app.post("/api/extract", response_model=ExtractionResult)
 def extract(
