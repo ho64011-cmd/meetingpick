@@ -1,6 +1,0 @@
-.git
-frontend
-backend/.env
-__pycache__
-*.pyc
-.pytest_cache
