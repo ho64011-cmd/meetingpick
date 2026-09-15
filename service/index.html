@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>meeting-personal-todo</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #111111;
+      --muted: #666666;
+      --border: #dddddd;
+      --primary: #2563eb;
+      --primary-bg: #eff6ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      background: #fafafa;
+      color: var(--text);
+      padding: 24px;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 22px; margin: 0 0 8px; }
+    .subtitle { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+    .card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      font-size: 14px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      resize: vertical;
+    }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    button {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button.secondary { background: #e5e7eb; color: var(--text); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .status { font-size: 13px; color: var(--muted); margin-top: 8px; min-height: 18px; }
+    .error { color: #dc2626; font-size: 13px; }
+    .result { margin-top: 12px; }
+    .task {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 8px;
+      background: #f7f7f7;
+    }
+    .task .meta { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .task .text { font-size: 15px; }
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      background: var(--primary-bg);
+      color: var(--primary);
+      border-radius: 4px;
+      padding: 2px 6px;
+      margin-right: 6px;
+    }
+    .highlight-snippet {
+      font-size: 13px;
+      color: var(--muted);
+      border-left: 3px solid var(--border);
+      padding-left: 8px;
+      margin-top: 6px;
+    }
+    .save-url {
+      font-size: 13px;
+      word-break: break-all;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>회의 개인 할 일 추출</h1>
+    <p class="subtitle">회의록·메모를 넣으면 내 담당 항목만 뽑아줍니다. (계정 없이 누구나 사용)</p>
+
+    <div class="card">
+      <label for="text">회의록·메모 텍스트</label>
+      <textarea id="text" placeholder="여기에 회의 텍스트를 붙여넣으세요."></textarea>
+    </div>
+
+    <div class="card">
+      <label>내 정보 (추출에 사용)</label>
+      <div class="row">
+        <div style="flex: 1;">
+          <label for="user_name">내 이름</label>
+          <input type="text" id="user_name" placeholder="김철수" />
+        </div>
+        <div style="flex: 1;">
+          <label for="user_speaker">내 화자 라벨</label>
+          <input type="text" id="user_speaker" placeholder="SPEAKER_01" />
+        </div>
+      </div>
+      <div class="row" style="margin-top: 10px;">
+        <div style="flex: 1;">
+          <label for="meeting_date">회의 날짜</label>
+          <input type="date" id="meeting_date" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <label>버튼</label>
+      <div class="row">
+        <button id="btn-extract">추출하기</button>
+        <button id="btn-copy" class="secondary" disabled>결과 복사</button>
+        <button id="btn-share" class="secondary" disabled>공유 링크</button>
+      </div>
+      <div id="status" class="status"></div>
+    </div>
+
+    <div id="result-area" class="result" hidden>
+      <div class="card">
+        <h3>추출 결과</h3>
+        <div id="tasks"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const BACKEND_URL = (window.__BACKEND_URL__ || "").replace(/\/+$/, "") || "/api";
+
+      const $ = (id) => document.getElementById(id);
+      const textEl = $("text");
+      const userNameEl = $("user_name");
+      const userSpeakerEl = $("user_speaker");
+      const meetingDateEl = $("meeting_date");
+      const btnExtract = $("btn-extract");
+      const btnCopy = $("btn-copy");
+      const btnShare = $("btn-share");
+      const statusEl = $("status");
+      const resultArea = $("result-area");
+      const tasksEl = $("tasks");
+
+      let sessionId = null;
+      let lastResult = null;
+
+      function loadSession() {
+        try {
+          const v = localStorage.getItem("mpt_session_id");
+          if (v) return v;
+        } catch (e) { /* ignore */ }
+        return null;
+      }
+
+      function saveSession(id) {
+        try {
+          localStorage.setItem("mpt_session_id", id);
+        } catch (e) { /* ignore */ }
+        sessionId = id;
+      }
+
+      function setStatus(msg, isError) {
+        statusEl.textContent = msg;
+        statusEl.classList.toggle("error", !!isError);
+      }
+
+      function renderTasks(tasks) {
+        tasksEl.innerHTML = "";
+        if (!tasks || tasks.length === 0) {
+          tasksEl.innerHTML = "<p>추출된 할 일이 없습니다.</p>";
+          return;
+        }
+
+        tasks.forEach((t) => {
+          const box = document.createElement("div");
+          box.className = "task";
+
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.innerHTML = `
+            <span class="badge">확신도: ${t.confidence}</span>
+            <span class="badge">근거: ${t.assignee_rationale}</span>
+            ${t.assignee_name ? `<span class="badge">담당자: ${t.assignee_name}</span>` : ""}
+            ${t.due_expression ? `<span class="badge">마감(원문): ${t.due_expression}</span>` : ""}
+            ${t.due_date ? `<span class="badge">마감일: ${t.due_date}</span>` : ""}
+          `;
+          box.appendChild(meta);
+
+          const text = document.createElement("div");
+          text.className = "text";
+          text.textContent = t.text;
+          box.appendChild(text);
+
+          if (t.highlights && t.highlights.length) {
+            const h = t.highlights[0];
+            const snippet = document.createElement("div");
+            snippet.className = "highlight-snippet";
+            snippet.textContent = `근거: “${h.snippet}”`;
+            box.appendChild(snippet);
+          }
+
+          tasksEl.appendChild(box);
+        });
+      }
+
+      async function extract() {
+        const text = textEl.value.trim();
+        if (!text) {
+          setStatus("텍스트를 입력해주세요.", true);
+          return;
+        }
+        setStatus("추출 중…");
+        btnExtract.disabled = true;
+
+        try {
+          const res = await fetch(`${BACKEND_URL}/extract`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text,
+              user_name: userNameEl.value.trim() || "unknown",
+              user_speaker: userSpeakerEl.value.trim() || "unknown",
+              meeting_date: meetingDateEl.value || null,
+            }),
+          });
+
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body.detail || `HTTP ${res.status}`);
+          }
+
+          const result = await res.json();
+          lastResult = result;
+
+          renderTasks(result.tasks);
+          resultArea.hidden = false;
+          btnCopy.disabled = false;
+          btnShare.disabled = false;
+          setStatus(`추출 완료 — ${result.tasks?.length || 0}개 항목`);
+        } catch (e) {
+          setStatus(`추출 실패: ${e.message}`, true);
+        } finally {
+          btnExtract.disabled = false;
+        }
+      }
+
+      function copyResult() {
+        if (!lastResult || !lastResult.tasks || lastResult.tasks.length === 0) {
+          setStatus("복사할 결과가 없습니다.", true);
+          return;
+        }
+        const lines = lastResult.tasks.map((t) => {
+          const due = t.due_expression ? ` [마감: ${t.due_expression}]` : "";
+          return `${t.text}${due}`;
+        });
+        const text = `회의 개인 할 일\n\n${lines.join("\n")}`;
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text)
+            .then(() => setStatus("복사 완료"))
+            .catch(() => setStatus("복사 실패 (수동 선택)", true));
+        } else {
+          setStatus("복사 기능을 사용하려면 최신 브라우저를 사용하세요.", true);
+        }
+      }
+
+      async function shareLink() {
+        if (!lastResult) {
+          setStatus("공유할 결과가 없습니다.", true);
+          return;
+        }
+        setStatus("공유 링크 생성 중…");
+
+        try {
+          const res = await fetch(`${BACKEND_URL}/save`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text: textEl.value.trim(),
+              user_name: userNameEl.value.trim() || "unknown",
+              user_speaker: userSpeakerEl.value.trim() || "unknown",
+              meeting_date: meetingDateEl.value || null,
+            }),
+          });
+
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body.detail || `HTTP ${res.status}`);
+          }
+
+          const data = await res.json();
+          if (data.share_url) {
+            setStatus(`공유 링크: ${data.share_url}`);
+          } else {
+            setStatus("공유 링크를 생성할 수 없습니다.", true);
+          }
+        } catch (e) {
+          setStatus(`공유 실패: ${e.message}`, true);
+        }
+      }
+
+      btnExtract.addEventListener("click", extract);
+      btnCopy.addEventListener("click", copyResult);
+      btnShare.addEventListener("click", shareLink);
+    })();
+  </script>
+</body>
+</html>
